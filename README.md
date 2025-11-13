@@ -1,136 +1,151 @@
-# Q&A API
+# Q&A API — сервис вопросов и ответов
 
-API на FastAPI для создания и управления вопросами и ответами (вопрос — ответ).
+FastAPI‑приложение для управления вопросами и ответами.  
+Поддерживает каскадное удаление, валидация, миграции, тесты, Docker.
 
-Проект включает:
-- REST API (FastAPI)
-- SQLAlchemy ORM модели для вопросов и ответов
-- Alembic миграции
-- Тесты на pytest с использованием FastAPI TestClient
-- Dockerfile и docker-compose для запуска приложения и БД
+---
 
-## Структура репозитория (ключевые файлы)
+## API — эндпоинты
 
-- `main.py` — точка входа приложения (FastAPI). При старте применяются миграции (если запущено в контейнере/production).
-- `endpoints/` — маршруты API: `questions.py`, `answers.py`.
-- `db/` — конфигурация SQLAlchemy (`db.py`) и зависимость `get_db` (`dependencies.py`).
-- `models/` — ORM-модели (`orm_models.py`) и Pydantic схемы (`schemas.py`).
-- `migrations/` и `alembic.ini` — Alembic миграции для управления схемой базы данных.
-- `tests/` — тесты и `conftest.py` для настройки тестовой БД (sqlite).
-- `Dockerfile`, `docker-compose.yml` — контейнеризация и удобный запуск вместе с Postgres.
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/questions/` | Список всех вопросов |
+| `POST` | `/questions/` | Создать вопрос |
+| `GET` | `/questions/{id}` | Вопрос + **все ответы** |
+| `DELETE` | `/questions/{id}` | Удалить вопрос (**каскадно**) |
+| `POST` | `/questions/{id}/answers/` | Добавить ответ |
+| `GET` | `/answers/{id}` | Получить ответ |
+| `DELETE` | `/answers/{id}` | Удалить ответ |
 
-## Функциональность
+> **Каскадное удаление**: `DELETE /questions/{id}` удаляет **все ответы**  
+> **Валидация**: `text` и `user_id` — **обязательны, не пустые**  
+> **Один пользователь** → **много ответов** на один вопрос
 
-- Создание/получение/удаление вопросов
-- Добавление/получение/удаление ответов к вопросам
+**Документация**:  
+- Swagger UI: `http://localhost:8000/docs`  
+- ReDoc: `http://localhost:8000/redoc`
 
-API имеет два основных роутера:
-- `/questions` — операции с вопросами
-- `/answers` — операции с ответами
+---
 
-## Требования
-
-Список зависимостей в `requirements.txt`. Основные: Python 3.11, FastAPI, SQLAlchemy, Alembic, Uvicorn, psycopg2-binary, pytest.
-
-## Запуск через Docker (рекомендуемый)
-
-1) Скопируйте (или создайте) `.env`, если необходимо, и убедитесь, что в `docker-compose.yml` корректна строка подключения к БД. По умолчанию в `docker-compose.yml` используется:
+## Структура проекта
 
 ```
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/postgres
+.
+├── main.py                  # запуск, миграции, логи
+├── db/
+│   ├── db.py                # SQLAlchemy engine, Base
+│   └── dependencies.py      # get_db()
+├── models/
+│   ├── orm_models.py        # Question, Answer (ORM)
+│   └── schemas.py           # Pydantic v2 схемы
+├── endpoints/
+│   ├── questions.py         # роуты вопросов
+│   └── answers.py           # роуты ответов
+├── tests/
+│   ├── conftest.py          # тестовая SQLite БД
+│   └── test_q_a.py          # юнит‑тесты
+├── migrations/              # Alembic
+├── logs/                    # app.log
+├── Dockerfile
+├── docker-compose.yml
+├── alembic.ini
+└── requirements.txt
 ```
 
-2) Постройте и запустите сервисы:
+---
+
+## Запуск (Docker — **рекомендуемый**)
 
 ```powershell
-# В Windows PowerShell (из корня проекта)
+git clone https://github.com/LebArt2321/Q-A-API.git
+cd Q-A-API
 docker-compose up --build
 ```
 
-Контейнер `app` запускает `python main.py`, который в режиме запуска применит миграции Alembic (если запускается не как reloader) и запустит Uvicorn.
+API: `http://localhost:8000`  
+Swagger: `http://localhost:8000/docs`
 
-Приложение будет доступно по http://localhost:8000
+---
 
-## Локальный запуск (venv)
-
-1) Создайте виртуальное окружение и установите зависимости:
+## Локальный запуск
 
 ```powershell
-python -m venv .venv; .\.venv\Scripts\Activate.ps1
-pip install --upgrade pip
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
 
-2) Запустите локально (если вы хотите использовать встроенный Uvicorn):
-
-```powershell
-# примените миграции перед запуском при необходимости
+# Применить миграции
 alembic -c alembic.ini upgrade head
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Запустить
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-> Примечание: `main.py` сам пытается применить миграции при старте (в контейнерном окружении), но локально удобнее запускать `alembic` вручную перед стартом.
-
-## Миграции (Alembic)
-
-Конфигурация Alembic — в `alembic.ini`. Для применения миграций:
-
-```powershell
-alembic -c alembic.ini upgrade head
-```
-
-Чтобы создать новую миграцию (после изменения моделей):
-
-```powershell
-alembic -c alembic.ini revision --autogenerate -m "message"
-alembic -c alembic.ini upgrade head
-```
-
-## API — примеры запросов
-
-1) Создать вопрос
-
-```bash
-curl -X POST "http://localhost:8000/questions/" -H "Content-Type: application/json" -d '{"text": "Как дела?"}'
-```
-
-2) Получить список вопросов
-
-```bash
-curl http://localhost:8000/questions/
-```
-
-3) Добавить ответ к вопросу (id = 1)
-
-```bash
-curl -X POST "http://localhost:8000/questions/1/answers/" -H "Content-Type: application/json" -d '{"user_id": "user", "text": "Хорошо!"}'
-```
-
-4) Получить ответ
-
-```bash
-curl http://localhost:8000/answers/1
-```
+---
 
 ## Тесты
 
-Тесты используют `pytest` и FastAPI `TestClient`. Файл `tests/conftest.py` настраивает `sqlite` тестовую БД (`sqlite:///./test.db`) и делает override зависимости `get_db`.
-
-Запуск тестов локально:
-
 ```powershell
-# активируйте виртуальное окружение, затем
+# В Docker
+docker-compose exec app pytest -v
+
+# Локально
 pytest -v
 ```
 
-Тесты не требуют поднятого Postgres, так как используют sqlite-файл для изоляции.
+Используется изолированная SQLite (`test.db`)  
+Тесты независимы — таблицы создаются/удаляются автоматически
 
-## Отладка и распространённые проблемы
+---
 
-- ModuleNotFoundError: No module named 'main' — при запуске тестов внутри контейнера или в нестандартном рабочем каталоге: убедитесь, что текущая рабочая директория — корень проекта (там, где лежит `main.py`), либо добавьте корень проекта в `PYTHONPATH` перед запуском. Пример для PowerShell:
+## Миграции (Alembic)
 
+Применить миграции:
 ```powershell
-$env:PYTHONPATH = "$PWD"; pytest -v
+alembic -c alembic.ini upgrade head
 ```
 
-- Логи приложения записываются в `logs/app.log` (код main.py создаёт FileHandler для `/app/logs/app.log`). Убедитесь, что директория `logs` существует и доступна для записи (docker-compose монтирует `./logs` в контейнер).
+Создать новую миграцию:
+```powershell
+alembic -c alembic.ini revision --autogenerate -m "add column"
+```
+
+---
+
+## Примеры запросов
+
+```bash
+# Создать вопрос
+curl -X POST http://localhost:8000/questions/ \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Как дела?"}'
+
+# Добавить ответ
+curl -X POST http://localhost:8000/questions/1/answers/ \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user1", "text": "Отлично!"}'
+
+# Получить вопрос с ответами
+curl http://localhost:8000/questions/1
+
+# Удалить вопрос (удалит и все ответы)
+curl -X DELETE http://localhost:8000/questions/1
+```
+
+---
+
+## Технологии
+
+- **FastAPI** + **Pydantic v2**
+- **SQLAlchemy 2.0**
+- **PostgreSQL**
+- **Alembic** (миграции)
+- **Docker** + **docker-compose**
+- **pytest** (тесты)
+
+---
+
+## Логи
+
+- **Файл**: `logs/app.log`
+- **Консоль**: stdout

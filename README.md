@@ -54,28 +54,33 @@ FastAPI‑приложение для управления вопросами и
 
 ---
 
-## Настройка окружения
+## Запуск проекта
 
-Скопируй пример:
-   ```powershell
-   cp .env.example .env
-   ```
----
-
-## Запуск (Docker — **рекомендуемый**)
+### 1. Клонируй репозиторий
 
 ```powershell
 git clone https://github.com/LebArt2321/Q-A-API.git
 cd Q-A-API
+```
+
+### 2. Настрой окружение
+
+```powershell
+# Скопируй шаблон
+cp .env.example .env
+```
+
+### 3. Запуск через Docker (рекомендуемый)
+
+```powershell
 docker-compose up --build
 ```
 
 API: `http://localhost:8000`  
-Swagger: `http://localhost:8000/docs`
+Swagger UI: `http://localhost:8000/docs`  
+ReDoc: `http://localhost:8000/redoc`
 
----
-
-## Локальный запуск
+### 4. Локальный запуск (без Docker)
 
 ```powershell
 python -m venv .venv

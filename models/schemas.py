@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import datetime
-from typing import Any
+from typing import List
 
 class QuestionBase(BaseModel):
     text: str
@@ -18,6 +18,13 @@ class QuestionCreate(QuestionBase):
     pass
 
 class Question(QuestionBase):
+    id: int
+    created_at: datetime
+    answers: List["Answer"]
+
+    model_config = ConfigDict(from_attributes=True)
+
+class QuestionList(QuestionBase):
     id: int
     created_at: datetime
 

@@ -1,16 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from db.dependencies import get_db
-from models.orm_models import Question
-from models.schemas import Question as QuestionSchema
-from models.schemas import QuestionCreate
-from models.schemas import AnswerCreate
-from models.orm_models import Answer
-from models.schemas import Answer as AnswerSchema
+from models.orm_models import Question, Answer
+from models.schemas import Answer as AnswerSchema, Question as QuestionSchema, QuestionCreate, QuestionList, AnswerCreate
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
-@router.get("/", response_model=list[QuestionSchema]) # список всех вопросов
+@router.get("/", response_model=list[QuestionList])  # список всех вопросов
 def get_questions(db: Session = Depends(get_db)):
     questions = db.query(Question).all()
     return questions
@@ -24,8 +20,13 @@ def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
     return db_question
 
 @router.get("/{id}", response_model=QuestionSchema)  # получить вопрос и все ответы
-def get_question_with_answer(id: int, db: Session = Depends(get_db)):
-    question = db.query(Question).filter(Question.id == id).first()
+def get_question_with_answers(id: int, db: Session = Depends(get_db)):
+    question = (
+        db.query(Question)
+        .options(joinedload(Question.answers))
+        .filter(Question.id == id)
+        .first()
+    )
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     return question
@@ -44,7 +45,7 @@ def add_answer(answer: AnswerCreate, id: int, db: Session = Depends(get_db)):
     question = db.query(Question).filter(Question.id == id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
-    db_answer = Answer(**answer.model_dump(), question_id=id)  # создаём ORM-объект
+    db_answer = Answer(**answer.model_dump(), question_id=id)
     db.add(db_answer)
     db.commit()
     db.refresh(db_answer)
